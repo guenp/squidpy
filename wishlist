@@ -1,0 +1,3 @@
+- save units in data object
+- save data on disk, choose datafolder with file dialog, globally stored
+- easy retrieve data with stamp search
