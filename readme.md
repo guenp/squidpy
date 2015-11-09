@@ -1,5 +1,6 @@
 # Squidpy
-Measurement suite for scanning SQUID lab
+Measurement suite for scanning SQUID lab.
+
 Made for smooth integration with ipython notebook.
 
 # Usage
