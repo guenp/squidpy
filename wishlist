@@ -1,3 +1,9 @@
 - save units in data object
 - save data on disk, choose datafolder with file dialog, globally stored
 - easy retrieve data with stamp search
+- pick parameters to measure with checkboxes
+- change variables with input fields in html/javascript form
+- sweep variable
+- javascript plot, click to zoom, change figure labels, colors, etc
+- get datapoint asynchronously
+- plotting in separate process
