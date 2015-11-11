@@ -43,22 +43,13 @@ class DataCollector(Process):
         super(DataCollector, self).__init__()
         self.q = Queue()
         self.data = Data(title, folder)
-        plot_pipe, plotter_pipe = Pipe()
-        self.plot_pipe = plot_pipe
-        self.plotter_pipe = plotter_pipe
-        self.plot_time = .1
         self.daemon = True
         self.output = output
         self.folder = folder
-    
-    def update_plot(self):
-        if not self.plotter_pipe.poll():
-            self.plot_pipe.send(self.data)
-    
-    def finish_plot(self):
-        self.plot_pipe.send(None)
         
-    def new_file(self, title):
+    def new_file(self, title=''):
+        if title=='':
+            title = self.title
         self.data = Data(title, self.folder)
     
     def save_data(self):
@@ -72,12 +63,5 @@ class DataCollector(Process):
                 dp = self.q.get()
                 if dp is not None:
                     self.data.add_dp(dp)
-                    running = True
-                else:
-                    self.finish_plot()
-                    running = False
-                    break
-            if not self.data.empty and running:
-                self.update_plot()
-                self.save_data()
+                    self.save_data()
             time.sleep(0.1)

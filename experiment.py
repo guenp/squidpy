@@ -27,11 +27,6 @@ class Measurement(Process):
     def get_dp(self):
         return get_datapoint(self.param_dict)
     
-    def set_param(self, param_name, val):
-        # print('setting %s = %s' %(param_name, val))
-        ins, param = re.split('\.',param_name)
-        setattr(self.ins_dict[ins], param, val)
-    
     def do_measurement(self, measlist):
         if len(measlist)>0:
             meas = measlist.pop(0)
@@ -39,33 +34,31 @@ class Measurement(Process):
                 self.recursive_sweep(measlist.copy(), *meas['params'])
             if meas['type']=='watch':
                 t = time.time()
-                while abs(time.time()-t) < meas['params']:
+                while abs(time.time()-t) <= meas['params']:
                     self.do_measurement(measlist.copy())
             if meas['type']=='measure':
                 dp = self.get_dp()
                 self.q.put(dp)
-                pause(0.1)
                 self.do_measurement(measlist.copy())
     
-    def recursive_sweep(self, measlist, sweep_param, start, stop, step):
-        [self.set_param_and_run_next(measlist, sweep_param, val) for val in get_array(start, stop, step)]
+    def recursive_sweep(self, measlist, ins, param, start, stop, step):
+        [self.set_param_and_run_next(measlist, ins, param, val) for val in get_array(start, stop, step)]
 
-    def set_param_and_run_next(self, measlist, sweep_param, val):
-        self.set_param(sweep_param, val)
+    def set_param_and_run_next(self, measlist, ins, param, val):
+        setattr(ins, param, val)
         self.do_measurement(measlist.copy())
     
     def run(self):
         self.do_measurement(self.measlist.copy())
         self.q.put(None) #end measurement
 
-class Experiment(Process):
+class Experiment():
     '''
     Basic experiment class. This class creates the measurement, plot and data collector. It runs the measurement in a separate process, which drops datapoints in a queue.
     The datacollector, also in a separate process, is a daemon that collects all these datapoints in a Data (pd.Dataframe-like) object and saves the data periodically on-disk.
     It also drops the latest Data instance in a pipe for live plotting in the main thread.
     '''
     def __init__(self, title, param_dict):
-        super(Experiment, self).__init__()
         self.title = title
         manager = Manager()
         self.output = manager.dict()
@@ -74,15 +67,13 @@ class Experiment(Process):
         self.param_dict = param_dict
         self.measurement = Measurement(self.param_dict, 
                                        self.datacollector.q)
-        self.liveplot = LivePlotter(self.title, 
-                                    self.param_dict, 
-                                    self.datacollector.plotter_pipe)
-        
-    def plot(self, x, y, *args, **kwargs):
-        self.liveplot.add_line(x, y, *args, **kwargs)
-        
-    def add_line(self, x, y, *args, **kwargs):
-        self.liveplot.add_line(x, y, *args, **kwargs)
+    
+    @property
+    def data(self):
+        if 'data' in self.output.keys():
+            return self.output['data']
+        else:
+            return self.datacollector.data
     
     def watch(self, t_max = 10, param_dict=None):
         '''
@@ -94,7 +85,8 @@ class Experiment(Process):
         self.measurement.set(watch = t_max)
         self.measure(param_dict)
     
-    def sweep(self, sweep_param):
+    def sweep(self, ins, sweep_param):
+        self.ins = ins
         self.sweep_param = sweep_param
         return self
     
@@ -104,7 +96,7 @@ class Experiment(Process):
         self.measurement.set(measure = param_dict)
         
     def __getitem__(self, s):
-        self.measurement.set(sweep = (self.sweep_param, 
+        self.measurement.set(sweep = (self.ins, self.sweep_param, 
                              s.start, s.stop, s.step))
     
     def run(self):
@@ -118,8 +110,6 @@ class Experiment(Process):
                                        self.datacollector.q)
             self.measurement.measlist = measlist
         self.measurement.start()
-        self.liveplot.run()
-        self.data = self.output['data']
     
     def close(self):
         self.datacollector.terminate()

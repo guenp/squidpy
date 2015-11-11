@@ -2,7 +2,6 @@ import time
 import asyncio
 import numpy as np
 
-#@asyncio.coroutine
 def get_parameter(ins, param):
     '''
     Get instrument parameter and store in datapoint.
@@ -17,14 +16,9 @@ def get_datapoint(param_dict):
     '''
     global datapoint
     datapoint = {}
-    #tasks = []
-    #loop = asyncio.get_event_loop()
     for ins in param_dict.keys():
         for param in param_dict[ins].keys():
             get_parameter(ins, param)
-            #tasks.append(asyncio.ensure_future(get_parameter(ins, param)))
-    #loop.run_until_complete(asyncio.wait(tasks))
-    #loop.close()
     return datapoint
 
 def get_array(start, stop, step):
