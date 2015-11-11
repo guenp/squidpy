@@ -2,6 +2,7 @@ from multiprocessing import Process, Pipe, Manager
 from squidpy.instrument import get_datapoint, get_array
 from squidpy.plotting import LivePlotter
 from squidpy.data import DataCollector, Data
+from IPython import display
 from pylab import pause
 import time
 import re
@@ -30,6 +31,9 @@ class Measurement(Process):
     def do_measurement(self, measlist):
         if len(measlist)>0:
             meas = measlist.pop(0)
+            if meas['type']=='do':
+                meas['params']()
+                self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
             if meas['type']=='watch':
@@ -64,6 +68,7 @@ class Experiment():
         self.output = manager.dict()
         self.datacollector = DataCollector(self.output, title)
         self.datacollector.start()
+        self._data = self.datacollector.data
         self.param_dict = param_dict
         self.measurement = Measurement(self.param_dict, 
                                        self.datacollector.q)
@@ -71,9 +76,17 @@ class Experiment():
     @property
     def data(self):
         if 'data' in self.output.keys():
-            return self.output['data']
-        else:
-            return self.datacollector.data
+            plots = self._data.plots
+            self._data = Data(self.output['title'], self.output['folder'], self.output['stamp'], self.output['data'])
+            self._data.plots = plots
+        return self._data
+    
+    @property
+    def running(self):
+        running = self.measurement.is_alive()
+        if not running:
+            display.clear_output(wait=True)
+        return running
     
     def watch(self, t_max = 10, param_dict=None):
         '''
@@ -89,6 +102,9 @@ class Experiment():
         self.ins = ins
         self.sweep_param = sweep_param
         return self
+    
+    def do(self, func):
+        self.measurement.set(do = func)
     
     def measure(self, param_dict=None):
         if param_dict is None:
