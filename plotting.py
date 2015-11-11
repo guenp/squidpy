@@ -25,6 +25,7 @@ class LivePlotter(Process):
     def plot_loop(self):
         t = time.time()
         plot_created = False
+        data = None
         while True:
             if not self.pipe.poll(timeout=self.timeout):
                 break
@@ -32,7 +33,7 @@ class LivePlotter(Process):
                 # get the last value from the queue
                 while self.pipe.poll():
                     msg = self.pipe.recv()
-                    if msg is None:
+                    if (msg is None) and (data is not None):
                         self.update_plot(data)
                     data = msg
                 t = time.time()
@@ -49,8 +50,8 @@ class LivePlotter(Process):
     def run(self):
         self.plot_loop()
     
-    def add_line(self, x, y, *args):
-        self.lines.append({'x': x, 'y': y, 'plotargs': args})
+    def add_line(self, x, y, *args, **kwargs):
+        self.lines.append({'x': x, 'y': y, 'plotargs': args, 'plotkwargs': kwargs})
         if self.labels == None:
             xins, xparam = re.split('\.',x)
             yins, yparam = re.split('\.',y)
@@ -60,8 +61,8 @@ class LivePlotter(Process):
         #print('create plot')
         self.fig = pl.figure()
         pl.title(self.title)
-        for xname, yname, plotargs in [(line['x'],line['y'],line['plotargs']) for line in self.lines]:
-            pl.plot(data[xname], data[yname], *plotargs)
+        for xname, yname, plotargs, plotkwargs in [(line['x'],line['y'],line['plotargs'],line['plotkwargs']) for line in self.lines]:
+            pl.plot(data[xname], data[yname], *plotargs, **plotkwargs)
         pl.xlabel(self.labels['x']), pl.ylabel(self.labels['y'])
         
     def update_plot(self, data):
@@ -70,7 +71,12 @@ class LivePlotter(Process):
         tasks = []
         for xname, yname, n in [(line['x'],line['y'],self.lines.index(line)) for line in self.lines]:
             tasks.append(asyncio.ensure_future(self.update_line(data, self.fig.axes[0], self.fig.axes[0].get_lines()[n], xname, yname)))
+            self.update_line(data, self.fig.axes[0], self.fig.axes[0].get_lines()[n], xname, yname)
         loop.run_until_complete(asyncio.wait(tasks))
+        
+        pl.plt.draw()
+        display.clear_output(wait=True)
+        display.display(pl.gcf())
     
     @asyncio.coroutine
     def update_line(self, data, ax, hl, xname, yname):
@@ -78,9 +84,6 @@ class LivePlotter(Process):
         hl.set_ydata(data[yname])
         ax.relim()
         ax.autoscale()
-        pl.plt.draw()
-        display.clear_output(wait=True)
-        display.display(pl.gcf())
     
     def clear_output(self):
         display.clear_output(wait=True)

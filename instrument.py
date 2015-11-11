@@ -1,5 +1,6 @@
 import time
 import asyncio
+import numpy as np
 
 #@asyncio.coroutine
 def get_parameter(ins, param):
@@ -25,6 +26,11 @@ def get_datapoint(param_dict):
     #loop.run_until_complete(asyncio.wait(tasks))
     #loop.close()
     return datapoint
+
+def get_array(start, stop, step):
+    if (stop-start)<0:
+        step = -step
+    return np.arange(start, stop+step, step)
 
 class Instrument():
     '''

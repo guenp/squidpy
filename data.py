@@ -3,11 +3,12 @@ from multiprocessing import Process, Queue, Pipe
 import time
 from squidpy.plotting import *
 import os
+import signal
 
 def create_stamp():
     from datetime import datetime
     import time
-    return datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
+    return datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')   
 
 class Data(pd.DataFrame):
     '''
@@ -49,9 +50,10 @@ class DataCollector(Process):
         self.daemon = True
         self.output = output
         self.folder = folder
-        
+    
     def update_plot(self):
-        self.plot_pipe.send(self.data)
+        if not self.plotter_pipe.poll():
+            self.plot_pipe.send(self.data)
     
     def finish_plot(self):
         self.plot_pipe.send(None)

@@ -35,6 +35,9 @@ class Mock(Instrument):
         """Get the voltage."""
         return self._voltage
     
+        def __getitem__(self, keys):
+            return keys
+    
     @voltage.setter
     def voltage(self, value):
         """Set the voltage."""
