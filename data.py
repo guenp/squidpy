@@ -1,9 +1,7 @@
 import pandas as pd
 from multiprocessing import Process, Queue, Pipe
 import time
-from squidpy.plotting import *
 import os
-import signal
 
 def create_stamp():
     from datetime import datetime
@@ -14,17 +12,19 @@ class Data(pd.DataFrame):
     '''
     Data class based on pandas dataframe for saving data in tab-delimited files.
     '''
-    def __init__(self, title='', folder='data'):
-        super(Data, self).__init__()
+    def __init__(self, title='', folder='data', stamp = create_stamp(), *args, **kwargs):
+        super(Data, self).__init__(*args, **kwargs)
         self.title = title
-        self.stamp = create_stamp()
+        self.stamp = stamp
         self.folder = folder
+        self.plots = []
+        if 'data' in kwargs.keys():
+            self._data = kwargs.pop('data')
+            super(Data, self).__init__(*args, **kwargs)
     
     def add_dp(self, dp):
         df = self.append(dp, ignore_index = True)
-        title, stamp = self.title, self.stamp
-        super(Data, self).__init__(df)
-        self.title, self.stamp = title, stamp
+        self.__init__(self.title, self.folder, self.stamp, df)
         
     def save(self, filename=''):
         if filename=='':
@@ -43,28 +43,22 @@ class DataCollector(Process):
         super(DataCollector, self).__init__()
         self.q = Queue()
         self.data = Data(title, folder)
-        plot_pipe, plotter_pipe = Pipe()
-        self.plot_pipe = plot_pipe
-        self.plotter_pipe = plotter_pipe
-        self.plot_time = .1
         self.daemon = True
         self.output = output
         self.folder = folder
-    
-    def update_plot(self):
-        if not self.plotter_pipe.poll():
-            self.plot_pipe.send(self.data)
-    
-    def finish_plot(self):
-        self.plot_pipe.send(None)
         
-    def new_file(self, title):
+    def new_file(self, title=''):
+        if title=='':
+            title = self.title
         self.data = Data(title, self.folder)
     
     def save_data(self):
         self.output['data'] = self.data
+        self.output['title'] = self.data.title
+        self.output['folder'] = self.data.folder
+        self.output['stamp'] = self.data.stamp
         self.data.save()
-    
+
     def run(self):
         running = True
         while True:
@@ -72,12 +66,5 @@ class DataCollector(Process):
                 dp = self.q.get()
                 if dp is not None:
                     self.data.add_dp(dp)
-                    running = True
-                else:
-                    self.finish_plot()
-                    running = False
-                    break
-            if not self.data.empty and running:
-                self.update_plot()
-                self.save_data()
+                    self.save_data()
             time.sleep(0.1)

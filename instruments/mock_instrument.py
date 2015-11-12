@@ -28,11 +28,13 @@ class Mock(Instrument):
     @property
     def wave(self):
         """Get wave."""
+        time.sleep(0.1)
         return float(numpy.sin(self.time))
 
     @property
     def voltage(self):
         """Get the voltage."""
+        time.sleep(0.1)
         return self._voltage
     
         def __getitem__(self, keys):
@@ -41,6 +43,7 @@ class Mock(Instrument):
     @voltage.setter
     def voltage(self, value):
         """Set the voltage."""
+        time.sleep(0.1)
         self._voltage = value
         
     def reset_timer(self):
