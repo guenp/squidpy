@@ -39,6 +39,15 @@ class Instrument():
                 params.append(key[1:])
         self.params = params
         
+    @property
+    def idn(self):
+        if hasattr(self, 'visa_handle'):
+            return self.visa_handle.ask('*IDN?')
+    
+    def close(self):
+        if hasattr(self, 'visa_handle'):
+            self.visa_handle.close()
+        
     def _repr_html_(self):
         '''
         Show a pretty HTML representation of the object for ipynb.
