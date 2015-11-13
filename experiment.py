@@ -1,6 +1,5 @@
 from multiprocessing import Process, Pipe, Manager
-from squidpy.instrument import get_datapoint, get_array
-from squidpy.plotting import LivePlotter
+from squidpy.instrument import get_datapoint, get_array, get_instruments
 from squidpy.data import DataCollector, Data
 from IPython import display
 from pylab import pause
@@ -17,29 +16,27 @@ class Measurement(Process):
     '''
     Basic measurement class.
     '''
-    def __init__(self, param_dict, q, *args, **kwargs):
+    def __init__(self, param_dict, q, s, *args, **kwargs):
         super(Measurement, self).__init__()
-        self.param_dict = param_dict
-        self.ins_dict = {ins.name: ins for ins in param_dict.keys()}
         self.q = q
+        self.s = s
         self.measlist = []
+        self.param_dict = param_dict
     
     def set(self, *args, **kwargs):
         '''
-        Add keyword argument as measurement type to measurement list
+        Add keyword argument as measurement type 
+        to measurement list
         '''
         for key in kwargs:
             self.measlist.append({'type':key, 'params': kwargs[key]})
     
     def get_dp(self):
-        return get_datapoint(self.param_dict)
+        return get_datapoint(self.instruments, self.param_dict)
     
     def do_measurement(self, measlist):
         if len(measlist)>0:
             meas = measlist.pop(0)
-            if meas['type']=='do':
-                meas['params']()
-                self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
             if meas['type']=='watch':
@@ -55,10 +52,11 @@ class Measurement(Process):
         [self.set_param_and_run_next(measlist, ins, param, val) for val in get_array(start, stop, step)]
 
     def set_param_and_run_next(self, measlist, ins, param, val):
-        setattr(ins, param, val)
+        setattr(self.instruments.dict()[ins], param, val)
         self.do_measurement(measlist.copy())
     
     def run(self):
+        self.instruments = get_instruments(self.s)
         self.do_measurement(self.measlist.copy())
         self.q.put(None) #end measurement
 
@@ -68,7 +66,7 @@ class Experiment():
     The datacollector, also in a separate process, is a daemon that collects all these datapoints in a Data (pd.Dataframe-like) object and saves the data periodically on-disk.
     It also drops the latest Data instance in a pipe for live plotting in the main thread.
     '''
-    def __init__(self, title, param_dict):
+    def __init__(self, title, instruments, param_dict=None):
         self.title = title
         manager = Manager()
         self.output = manager.dict()
@@ -76,17 +74,16 @@ class Experiment():
         self.figs = []
         self.datacollector = DataCollector(self.output, title)
         self.datacollector.start()
-        self._data = self.datacollector.data
+        self._data = pd.DataFrame()
         self.param_dict = param_dict
         self.measurement = Measurement(self.param_dict, 
-                                       self.datacollector.q)
+                                       self.datacollector.q,
+                                       instruments.s)
     
     @property
     def data(self):
         if 'data' in self.output.keys():
-            plots = self._data.plots
-            self._data = Data(self.output['title'], self.output['folder'], self.output['stamp'], self.output['data'])
-            self._data.plots = plots
+            self._data = Data(**self.output)
         return self._data
     
     @property

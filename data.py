@@ -17,14 +17,11 @@ class Data(pd.DataFrame):
         self.title = title
         self.stamp = stamp
         self.folder = folder
-        self.plots = []
-        if 'data' in kwargs.keys():
-            self._data = kwargs.pop('data')
-            super(Data, self).__init__(*args, **kwargs)
     
     def add_dp(self, dp):
+        title, folder, stamp = self.title, self.folder, self.stamp
         df = self.append(dp, ignore_index = True)
-        self.__init__(self.title, self.folder, self.stamp, df)
+        self.__init__(title, folder, stamp, df)
         
     def save(self, filename=''):
         if filename=='':
@@ -42,29 +39,22 @@ class DataCollector(Process):
     def __init__(self, output, title='Untitled', folder='data'):
         super(DataCollector, self).__init__()
         self.q = Queue()
-        self.data = Data(title, folder)
+        self.title = title
+        self.folder = folder
         self.daemon = True
         self.output = output
-        self.folder = folder
-        
-    def new_file(self, title=''):
-        if title=='':
-            title = self.title
-        self.data = Data(title, self.folder)
-    
-    def save_data(self):
-        self.output['data'] = self.data
-        self.output['title'] = self.data.title
-        self.output['folder'] = self.data.folder
-        self.output['stamp'] = self.data.stamp
-        self.data.save()
+        self.output['title'] = title
+        self.output['folder'] = folder
+        self.output['stamp'] = create_stamp()
 
     def run(self):
         running = True
+        df = pd.DataFrame()
         while True:
             while not self.q.empty():
                 dp = self.q.get()
                 if dp is not None:
-                    self.data.add_dp(dp)
-                    self.save_data()
+                    df = df.append(dp, ignore_index = True)
+                    self.output['data'] = df
+                    Data(**self.output).save()
             time.sleep(0.1)
