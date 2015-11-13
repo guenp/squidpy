@@ -70,7 +70,7 @@ def run_instrument_server(instruments):
         if not cmd: break
         try:
             conn.sendall(str(eval(cmd)).encode())
-        except (SyntaxError, NameError):
+        except (SyntaxError, NameError, AttributeError):
             conn.sendall(b'Command not recognized.')
     conn.close()
 
@@ -78,7 +78,7 @@ class Instrument():
     '''
     Instrument base class.
     '''
-    def __init__(self, name):
+    def __init__(self, name, *args, **kwargs):
         self.name = name
         params = []
         for key in vars(self).keys():
