@@ -1,12 +1,12 @@
 import numpy, time
-from squidpy.instrument import Instrument, Timer
+from squidpy.instrument import Instrument
 
 class Mock(Instrument):
     '''
     Mock instrument for testing squidpy.
     '''
     def __init__(self, name='mock'):
-        self.timer = Timer()
+        self.tstart = 0
         self._voltage = 10
         self._time = 0
         self._wave = self.wave
@@ -18,12 +18,23 @@ class Mock(Instrument):
     @property
     def time(self):
         """Get elapsed time"""
-        return self.timer.get()
+        if self.tstart==0:
+            self.tstart = time.time()
+        self._time = time.time()-self.tstart
+        return self._time
     
     @time.setter
     def time(self, value):
-        """Set the time"""
-        self.timer.reset(value)
+        """
+        Wait for the timer to reach the specified time.
+        If value = 0, reset.
+        """
+        if value==0:
+            self.tstart = 0
+        else:
+            while self.time < value:
+                time.sleep(0.001)
+        return True
 
     @property
     def wave(self):
@@ -45,6 +56,3 @@ class Mock(Instrument):
         """Set the voltage."""
         time.sleep(0.1)
         self._voltage = value
-        
-    def reset_timer(self):
-        self.timer.reset(time.time())

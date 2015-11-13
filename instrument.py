@@ -55,7 +55,7 @@ def get_instruments(s=None, HOST='localhost', PORT=50007):
         instruments.append(VirtualInstrument(s, ins_name))
     return InstrumentList(*instruments, s = s)
 
-def run_instrument_server(instruments):
+def run_instrument_server(instruments, verbose=False):
     '''Run an instrument server.'''
     import socket
 
@@ -74,7 +74,7 @@ def run_instrument_server(instruments):
         cmd = conn.recv(1024)
         if not cmd: break
         try:
-            print(cmd)
+            if verbose: print(cmd.decode())
             conn.sendall(str(eval(cmd)).encode())
         except (SyntaxError, NameError, AttributeError):
             conn.sendall(b'Command not recognized.')
@@ -141,6 +141,7 @@ class InstrumentList(list):
             setattr(self, key, self.dict()[key])
         if 's' in kwargs:
             self.s = kwargs.pop('s')
+        self.running = False
 
     def all(self):
         '''Return all parameters in a list.'''
@@ -159,19 +160,3 @@ class InstrumentList(list):
             html.append("</tr>")
         html.append("</table>")
         return ''.join(html)
-    
-class Timer():
-    '''
-    Basic time keeping instrument/stopwatch.
-    '''
-    def __init__(self):
-        self.tstart = 0
-        self.name = 'time'
-    def get(self):
-        if self.tstart==0:
-            self.tstart = time.time()
-        return time.time()-self.tstart
-    def reset(self,tstart=0):
-        self.tstart=tstart
-    def set(self, *args):
-        None

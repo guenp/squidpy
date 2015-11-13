@@ -41,12 +41,11 @@ class Measurement(Process):
     def do_measurement(self, measlist):
         if len(measlist)>0:
             meas = measlist.pop(0)
+            if meas['type']=='do':
+                ask_socket(self.instruments.s, meas['params'])
+                self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
-            if meas['type']=='watch':
-                t = time.time()
-                while abs(time.time()-t) <= meas['params']:
-                    self.do_measurement(measlist.copy())
             if meas['type']=='measure':
                 dp = self.get_dp(meas['params'])
                 self.q.put(dp)
@@ -182,14 +181,6 @@ class Experiment():
         ax.relim()
         ax.autoscale()
     
-    def watch(self, t_max = 10, params=None):
-        '''
-        Watch the system until time reaches t_max (in s)
-        '''
-        self.t_max = t_max
-        self.measurement.set(watch = t_max)
-        self.measure(params)
-    
     def sweep(self, sweep_param):
         ins, param = re.split('\.', sweep_param)
         return Sweep(self, ins, param)
@@ -203,6 +194,8 @@ class Experiment():
     def run(self):
         if self.measurement.measlist is []:
             raise NameError('Measurement is not defined.')
+        if 'measure' not in [meas['type'] for meas in self.measurement.measlist]:
+            print('Warning: No \'measure\' command found.')
         if self.measurement.pid is not None:
             measlist = self.measurement.measlist
             self.measurement = Measurement(self.datacollector.q,
