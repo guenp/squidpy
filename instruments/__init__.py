@@ -1,3 +1,6 @@
 from .mock_instrument import *
 from .keithley import *
-from .ni import *
+try:
+    from .ni import *
+except ImportError:
+    pass
