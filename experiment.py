@@ -1,5 +1,5 @@
 from multiprocessing import Process, Pipe, Manager
-from squidpy.instrument import get_array, get_instruments
+from squidpy.instrument import get_array, get_instruments, ask_socket
 from squidpy.data import DataCollector, Data
 from IPython import display
 from pylab import pause
@@ -16,26 +16,27 @@ class Measurement(Process):
     '''
     Basic measurement class.
     '''
-    def __init__(self, q, s, *args, **kwargs):
+    def __init__(self, q, s, measlist = [], *args, **kwargs):
         super(Measurement, self).__init__()
         self.q = q
         self.s = s
-        self.measlist = []
+        self.measlist = measlist
     
     def set(self, *args, **kwargs):
         '''
         Add keyword argument as measurement type 
         to measurement list
         '''
+        measlist = self.measlist.copy()
         for key in kwargs:
-            self.measlist.append({'type':key, 'params': kwargs[key]})
+            measlist.append({'type':key, 'params': kwargs[key]})
+        self.measlist = measlist
 
-    def get_dp(self, params):
-        datapoint = {}
-        for param in params:
-            ins_name, param_name = re.split('\.', param)
-            datapoint[param] = getattr(self.instruments.dict()[ins_name], param_name)
-        return datapoint
+    def get_dp(self, params=None):
+        if params is not None:
+            return ask_socket(self.instruments.s, 'get_datapoint(instruments, %s)' %params)
+        else:
+            return ask_socket(self.instruments.s, 'get_datapoint(instruments)')
     
     def do_measurement(self, measlist):
         if len(measlist)>0:
@@ -63,24 +64,33 @@ class Measurement(Process):
         self.do_measurement(self.measlist.copy())
         self.q.put(None) #end measurement
 
+class Sweep(object):
+        def __init__(self, experiment, ins, param):
+            self.ins = ins
+            self.param = param
+            self.experiment = experiment
+
+        def __getitem__(self, s):
+            self.experiment.measurement.set(sweep = (self.ins, self.param, 
+                                 s.start, s.stop, s.step))
+
 class Experiment():
     '''
     Basic experiment class. This class creates the measurement, plot and data collector. It runs the measurement in a separate process, which drops datapoints in a queue.
     The datacollector, also in a separate process, is a daemon that collects all these datapoints in a Data (pd.Dataframe-like) object and saves the data periodically on-disk.
     It also drops the latest Data instance in a pipe for live plotting in the main thread.
     '''
-    def __init__(self, title, instruments, param_dict=None):
+    def __init__(self, title, instruments):
         self.title = title
         manager = Manager()
         self.output = manager.dict()
         self.plots = []
         self.figs = []
+        self.s = instruments.s
         self.datacollector = DataCollector(self.output, title)
-        self.datacollector.start()
         self._data = pd.DataFrame()
-        self.param_dict = param_dict
         self.measurement = Measurement(self.datacollector.q,
-                                       instruments.s)
+                                       self.s)
     
     @property
     def data(self):
@@ -92,14 +102,18 @@ class Experiment():
     def running(self):
         running = self.measurement.is_alive()
         if not running:
+            self.close()
             if self.plots[0]['type'] is not 'pcolor':
                 display.clear_output(wait=True)
         return running
     
-    def wait_and_get_title(self):
+    def wait_and_get_title(self, timeout=2, tsleep=0):
         '''Wait for data file to fill and return title.'''
         while self.data.empty:
             time.sleep(0.01)
+            tsleep+=.01
+            if tsleep>timeout:
+                raise Exception('Timeout for graph: no data received.')
         title = '%s_%s' %(self._data.stamp, self._data.title)
         return title
     
@@ -172,39 +186,29 @@ class Experiment():
         '''
         Watch the system until time reaches t_max (in s)
         '''
-        if params is None:
-            params = self.param_dict
         self.t_max = t_max
         self.measurement.set(watch = t_max)
         self.measure(params)
     
-    def sweep(self, ins, sweep_param):
-        self.ins = ins
-        self.sweep_param = sweep_param
-        return self
+    def sweep(self, sweep_param):
+        ins, param = re.split('\.', sweep_param)
+        return Sweep(self, ins, param)
     
     def do(self, func):
         self.measurement.set(do = func)
     
     def measure(self, params=None):
-        if params is None:
-            params = self.param_dict
         self.measurement.set(measure = params)
-        
-    def __getitem__(self, s):
-        self.measurement.set(sweep = (self.ins, self.sweep_param, 
-                             s.start, s.stop, s.step))
     
     def run(self):
         if self.measurement.measlist is []:
             raise NameError('Measurement is not defined.')
-        elif not hasattr(self, 'param_dict'):
-            raise NameError('Measurement parameters are not defined.')
         if self.measurement.pid is not None:
             measlist = self.measurement.measlist
-            self.measurement = Measurement(self.param_dict, 
-                                       self.datacollector.q)
-            self.measurement.measlist = measlist
+            self.measurement = Measurement(self.datacollector.q,
+                                            self.s,
+                                            measlist)
+        self.datacollector.start()
         self.measurement.start()
     
     def close(self):

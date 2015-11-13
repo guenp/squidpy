@@ -1,7 +1,8 @@
 import time
 import asyncio
 import numpy as np
-from multiprocessing import Pipe
+import re
+import select
 
 def get_parameter(ins, param):
     '''
@@ -10,18 +11,17 @@ def get_parameter(ins, param):
     global datapoint
     datapoint['%s.%s' %(ins.name, param)] = getattr(ins, param)
 
-def get_datapoint(instruments, param_dict=None):
+def get_datapoint(instruments, params=None):
     '''
     Get datapoint by reading out all parameters as defined in param_dict.
     Eventually this should be done asynchronously. Note: figure out why eventloop gives error when executed within a multiprocessing.Process instance.
     '''
-    if param_dict is None:
-        param_dict = instruments.all()
-    global datapoint
+    if params is None:
+        params = instruments.all()
     datapoint = {}
-    for ins in param_dict.keys():
-        for param in param_dict[ins].keys():
-            get_parameter(instruments.dict()[ins], param)
+    for param in params:
+        ins_name, param_name = re.split('\.', param)
+        datapoint[param] = getattr(instruments.dict()[ins_name], param_name)
     return datapoint
 
 def get_array(start, stop, step):
@@ -31,6 +31,10 @@ def get_array(start, stop, step):
 
 def ask_socket(s, cmd):
     '''query socket and return response'''
+    #empty socket buffer
+    inputready, o, e = select.select([s],[],[], 0.0)
+    if len(inputready)>0:
+        for s in inputready: s.recv(1)
     s.sendall(cmd.encode())
     data = s.recv(1024)
     try:
@@ -61,6 +65,7 @@ def run_instrument_server(instruments):
     HOST = ''                 # Symbolic name meaning all available interfaces
     PORT = 50007              # Arbitrary non-privileged port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((HOST, PORT))
     s.listen(1)
     conn, addr = s.accept()
@@ -69,6 +74,7 @@ def run_instrument_server(instruments):
         cmd = conn.recv(1024)
         if not cmd: break
         try:
+            print(cmd)
             conn.sendall(str(eval(cmd)).encode())
         except (SyntaxError, NameError, AttributeError):
             conn.sendall(b'Command not recognized.')
@@ -137,11 +143,8 @@ class InstrumentList(list):
             self.s = kwargs.pop('s')
 
     def all(self):
-        '''
-        Return param_dict dictionary with all parameters.
-        '''
-        param_dict = {ins.name: {param:ins.units[param] for param in ins.params} for ins in self}
-        return param_dict
+        '''Return all parameters in a list.'''
+        return ['%s.%s' %(ins.name, param) for ins in self for param in ins.params]
 
     def dict(self):
         return {ins.name: ins for ins in self}
