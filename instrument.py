@@ -39,12 +39,10 @@ def ask_socket(s, cmd):
         ans = data.decode()
     return ans
 
-def get_instruments(s=None):
+def get_instruments(s=None, HOST='localhost', PORT=50007):
     '''Create socket connection to instrument server and return virtual instruments.'''
     import socket
     if s is None:
-        HOST = 'localhost'    # The remote host
-        PORT = 50007              # The same port as used by the server
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((HOST, PORT))
     ins_names = ask_socket(s,'[ins.name for ins in instruments]')
