@@ -3,7 +3,6 @@
 - easy retrieve data with stamp search
 - pick parameters to measure with checkboxes
 - change variables with input fields in html/javascript form
-- sweep variable
 - javascript plot, click to zoom, change figure labels, colors, etc
 - get datapoint asynchronously
-- plotting in separate process
+- logging, snapshot
