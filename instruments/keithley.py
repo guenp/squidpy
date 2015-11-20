@@ -42,6 +42,9 @@ class Keithley2182A(Instrument):
     def autorange(self, value):
         status = 'ON' if (value==True or (value==1) or (value=='on')) else 'OFF'
         self._visa_handle.write('SENS:VOLT:RANG:AUTO %s' %status)
+
+    def __del__(self):
+        self._visa_handle.close()
     
 class Keithley6220(Instrument):
     '''
@@ -94,6 +97,9 @@ class Keithley6220(Instrument):
         self._visa_handle.write('SOUR:SWE:ARM')
         self._visa_handle.write('INIT')
 
+    def __del__(self):
+        self._visa_handle.close()
+
 class Keithley2400(Instrument):
     '''
     Instrument driver for Keithley 2400 Source Meter
@@ -137,4 +143,6 @@ class Keithley2400(Instrument):
                 "current": "CURR",
                 "memory": "MEM"}
         self._visa_handle.write(':SOUR:FUNC:MODE %s' %options[value])
-        
+    
+    def __del__(self):
+        self._visa_handle.close()

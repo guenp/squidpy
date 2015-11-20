@@ -4,3 +4,4 @@ try:
     from .ni import *
 except ImportError:
     pass
+from .ppms import *

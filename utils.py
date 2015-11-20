@@ -72,6 +72,12 @@ def _kill_all_child_procs():
             if procs[pids.index(p.ppid())].ppid() in pids:
                 p.kill()
 
+def connect_socket(HOST, PORT):
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((HOST, PORT))
+    return s
+
 def socket_poll(s):
     inputready, o, e = select.select([s],[],[], 0.0)
     return len(inputready)>0

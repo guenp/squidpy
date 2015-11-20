@@ -6,8 +6,8 @@ import socket, select
 import gc
 import logging
 
-def run_server(instruments, verbose=False):
-    server = Server(instruments, verbose)
+def run_server(instruments, host, port, verbose=False):
+    server = Server(instruments, host, port, verbose)
     server.start()
     return server
 
@@ -29,9 +29,11 @@ def get_instruments(s=None, HOST='localhost', PORT=50007):
     return InstrumentList(*instruments, socket = s)
 
 class Server(Process):
-    def __init__(self, instruments, verbose=False):
+    def __init__(self, instruments, host, port, verbose=False):
         self.experiments = {}
         self.instruments = instruments
+        self.host = host
+        self.port = port
         self.verbose = verbose
         set_logging_config()
         super(Server, self).__init__()
@@ -65,8 +67,8 @@ class Server(Process):
         for ins in instruments:
             locals()[ins._name] = ins
 
-        HOST = 'localhost'                 # Symbolic name meaning all available interfaces
-        PORT = 50007              # Arbitrary non-privileged port
+        HOST = self.host                 # Symbolic name meaning all available interfaces
+        PORT = self.port              # Arbitrary non-privileged port
         running = True
         while running:
             print('Starting socket at %s:%s...' %(HOST, PORT))
@@ -85,13 +87,17 @@ class Server(Process):
                     break
                 try:
                     if self.verbose: logging.info(cmd.decode())
-                    conn.sendall(str(eval(cmd)).encode())
+                    if b'=' in cmd:
+                        exec(cmd)
+                        response = 'True'
+                    else:
+                        response = str(eval(cmd))
+                    conn.sendall(response.encode())
                 except Exception as e:
                     logging.warning('Exception in server process for command %s: %s' %(cmd,e))
                     conn.sendall(b'Command not recognized.')
                 gc.collect()
             conn.close()
-            PORT += 1
             if running:
                 print('Connection closed. Restarting socket at port %s.' %PORT)
             else:
