@@ -51,9 +51,9 @@ def set_logging_config(console_level="WARNING", log_level="DEBUG"):
             }
         }
     })
+
 if not os.path.exists(_LOG_DIR):
     os.makedirs(_LOG_DIR)
-set_logging_config('DEBUG')
 
 def _get_running_procs():
     procs = []
@@ -81,7 +81,7 @@ def ask_socket(s, cmd):
     '''query socket and return response'''
     #empty socket buffer
     if socket_poll(s):
-        for s in inputready: s.recv(1024)
+        s.recv(1024)
     s.sendall(cmd.encode())
     while not socket_poll(s):
         time.sleep(.01)

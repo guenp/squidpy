@@ -1,19 +1,18 @@
 from squidpy.experiment import Experiment
 from squidpy.instrument import RemoteInstrument, InstrumentList
-from squidpy.utils import ask_socket
+from squidpy.utils import ask_socket, set_logging_config
 from multiprocessing import Process, Manager
 import socket, select
 import gc
 import logging
 
 def run_server(instruments, verbose=False):
-    manager = Manager()
-    output = manager.dict()
-    server = Server(instruments, output, verbose)
+    server = Server(instruments, verbose)
     server.start()
-    return server, output
+    return server
 
 def get_socket(HOST='localhost', PORT=50007):
+    set_logging_config()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST, PORT))
     return s
@@ -30,12 +29,11 @@ def get_instruments(s=None, HOST='localhost', PORT=50007):
     return InstrumentList(*instruments, socket = s)
 
 class Server(Process):
-    def __init__(self, instruments, output, verbose=False):
+    def __init__(self, instruments, verbose=False):
         self.experiments = {}
         self.instruments = instruments
         self.verbose = verbose
-        self.output = output
-        self.output['stamps'] = []
+        set_logging_config()
         super(Server, self).__init__()
 
     def create_experiment(self, title, measlist):
@@ -43,7 +41,6 @@ class Server(Process):
         stamp = experiment.output['stamp']
         self.experiments[stamp] = experiment
         logging.info('Created experiment with stamp %s' %stamp)
-        self.output['stamps'] = self.output['stamps'].append(stamp)
         return stamp
 
     def get_experiment(self, stamp):
@@ -90,7 +87,7 @@ class Server(Process):
                     if self.verbose: logging.info(cmd.decode())
                     conn.sendall(str(eval(cmd)).encode())
                 except Exception as e:
-                    logging.warning('Exception in server process: %s' %e)
+                    logging.warning('Exception in server process for command %s: %s' %(cmd,e))
                     conn.sendall(b'Command not recognized.')
                 gc.collect()
             conn.close()

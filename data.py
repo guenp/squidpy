@@ -102,6 +102,7 @@ class RemoteDataCollector(DataCollector):
         time.sleep(.1)
         if self.data_length>0:
             self.output['data'] = self.get_data()
+            n = len(self.output['data'])
         while running and (timeout<self.timeout):
             while self.data_length > n:
                 dp = self.get_dp(n)

@@ -4,5 +4,3 @@ from .experiment import *
 from .instrument import *
 from .utils import *
 from .server import *
-
-set_logging_config()

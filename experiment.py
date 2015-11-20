@@ -140,7 +140,7 @@ class Experiment():
         if ax.get_figure() not in self.figs:
             self.figs.append(ax.get_figure())
 
-    def update_plot(self):
+    def clear_plot(self):
         for fig in self.figs:
             fig.clf()
             pl.close()
