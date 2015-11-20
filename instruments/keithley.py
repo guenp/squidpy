@@ -5,7 +5,7 @@ class Keithley2182A(Instrument):
     '''
     Instrument driver for Keithley 2182A Nanovoltmeter
     '''
-    def __init__(self, name='keithleynano', gpib_address=''):
+    def __init__(self, gpib_address='', name='keithleynano'):
         rm = visa.ResourceManager()
         self._visa_handle = rm.open_resource(gpib_address)
         self._visa_handle.read_termination = '\n'
@@ -50,7 +50,7 @@ class Keithley6220(Instrument):
     '''
     Instrument driver for Keithley 6220 DC current source
     '''
-    def __init__(self, name='keithleynano', gpib_address=''):
+    def __init__(self, gpib_address='',  name='currentsource'):
         self._visa_handle = visa.ResourceManager().open_resource(gpib_address)
         self._visa_handle.read_termination = '\n'
         self._units = {'current': 'A', 'compliance': 'A'}
@@ -104,7 +104,7 @@ class Keithley2400(Instrument):
     '''
     Instrument driver for Keithley 2400 Source Meter
     '''
-    def __init__(self, name='keithley', gpib_address=''):
+    def __init__(self, gpib_address='', name='sourcemeter'):
         self._units = {'current': 'A',
                       'voltage': 'V'}
         self._visa_handle = visa.ResourceManager().open_resource(gpib_address)

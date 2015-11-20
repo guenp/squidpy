@@ -9,12 +9,14 @@ import inspect
 import logging
 import types
 
-def create_instruments(instrument_class, args_vec):
+def create_instruments(*args):
     set_logging_config()
     instruments = InstrumentList()
     procs = []
-    for args in args_vec:
-        ins_proc = InstrumentDaemon(instrument_class, *args)
+    for instrument_tuple in args:
+        instrument_class = instrument_tuple[0]
+        instrument_args = instrument_tuple[1:]
+        ins_proc = InstrumentDaemon(instrument_class, *instrument_args)
         ins = RemoteInstrument(ins_proc._pipe_out)
         instruments.append(ins)
         procs.append(ins_proc)

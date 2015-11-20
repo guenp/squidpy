@@ -5,7 +5,7 @@ class Timer(Instrument):
     '''
     Timer instrument for keeping track of time.
     '''
-    def __init__(self, name='mock', wait=.1):
+    def __init__(self, name='timer'):
         self._tstart = 0
         self._time = 0
         self._units = {'time': 's'}
