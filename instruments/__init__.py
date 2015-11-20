@@ -5,3 +5,4 @@ try:
 except ImportError:
     pass
 from .ppms import *
+from .timer import *

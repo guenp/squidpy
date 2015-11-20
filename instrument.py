@@ -3,13 +3,14 @@ import asyncio
 import numpy as np
 import re
 from multiprocessing import Process, Pipe
-from squidpy.utils import ask_socket, ask_pipe, read_pipe
+from squidpy.utils import ask_socket, ask_pipe, read_pipe, set_logging_config
 import asyncio
 import inspect
 import logging
 import types
 
 def create_instruments(instrument_class, args_vec):
+    set_logging_config()
     instruments = InstrumentList()
     procs = []
     for args in args_vec:

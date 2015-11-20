@@ -48,7 +48,11 @@ class Measurement(ctx.Process):
         if len(measlist)>0:
             meas = measlist.pop(0)
             if meas['type']=='do':
-                ask_socket(self.instruments.s, meas['params'])
+                do_func, args = meas['params']
+                if hasattr(self.instruments, 's'):
+                    ask_socket(self.instruments.s, '%s(*%s)' %(do_func, args))
+                else:
+                    eval('%s(*%s)' %(do_func, args))
                 self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
@@ -192,8 +196,8 @@ class Experiment():
         ins, param = re.split('\.', sweep_param)
         return Sweep(self, ins, param)
     
-    def do(self, func):
-        self.set(do = func)
+    def do(self, func, *args):
+        self.set(do = (func, args))
     
     def measure(self, params=None):
         self.set(measure = params)
