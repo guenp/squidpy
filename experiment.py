@@ -148,7 +148,30 @@ class Experiment():
         for fig in self.figs:
             fig.clf()
             pl.close()
+        self.figs = []
+        self.plots = []
         gc.collect()
+
+    def update_plot(self):
+        loop = asyncio.get_event_loop()
+        tasks = []
+        self.data
+        for plot in self.plots:
+            ax = plot['ax']
+            if plot['type']=='plot':
+                x,y = plot['args'][0], plot['args'][1]
+                if type(y) == str:
+                    y = [y]
+                for yname,line in zip(y,ax.lines):
+                    tasks.append(asyncio.ensure_future(self.update_line(ax, line, x, yname)))
+            if plot['type']=='pcolor':
+                x,y,z = plot['x'], plot['y'], plot['z']
+                tasks.append(asyncio.ensure_future(self.update_pcolor(ax, x, y, z)))
+        loop.run_until_complete(asyncio.wait(tasks))
+        
+        display.clear_output(wait=True)
+        display.display(*self.figs)
+        time.sleep(0.1)
     
     def pcolor(self, xname, yname, zname, *args, **kwargs):
         title = self.wait_and_get_title()
@@ -183,8 +206,8 @@ class Experiment():
     @asyncio.coroutine
     def update_line(self, ax, hl, xname, yname):
         del hl._xorig, hl._yorig
-        hl.set_xdata(self.output['data'][xname])
-        hl.set_ydata(self.output['data'][yname])
+        hl.set_xdata(self._data[xname])
+        hl.set_ydata(self._data[yname])
         ax.relim()
         ax.autoscale()
         gc.collect()
@@ -230,6 +253,8 @@ class Experiment():
 
 class RemoteExperiment(Experiment):
     def __init__(self, socket, title='', measlist=[], stamp=None):
+        self.manager = Manager()
+        self.output = self.manager.dict()
         self.s = socket
         if stamp == None:
             self.title = title
@@ -239,9 +264,6 @@ class RemoteExperiment(Experiment):
             self.stamp = stamp
         self.plots = []
         self.figs = []
-        self.manager = Manager()
-        self.output = self.manager.dict()
-        self.datacollector = RemoteDataCollector(socket=self.s, title=self.title, output=self.output, stamp=stamp, save_data=False)
         self._data = pd.DataFrame
 
     def get_experiment(self, stamp):
@@ -278,8 +300,9 @@ class RemoteExperiment(Experiment):
     def restart_datacollector(self):
         self.manager = Manager()
         self.output = self.manager.dict()
-        if self.datacollector.is_alive():
-            self.datacollector.terminate()
+        if hasattr(self, 'datacollector'):
+            if self.datacollector.is_alive():
+                self.datacollector.terminate()
         self.datacollector = RemoteDataCollector(socket=self.s, title=self.title, output=self.output, stamp=self.stamp, save_data=False)
         # self.output['data'] = self._data
         self.datacollector.start()
@@ -290,14 +313,16 @@ class RemoteExperiment(Experiment):
         if 'measure' not in [meas['type'] for meas in self.measlist]:
             print('Warning: No \'measure\' command found.')
         self.create_remote()
-        if self.datacollector.is_alive():
-            self.datacollector.terminate()
+        if hasattr(self, 'datacollector'):
+            if self.datacollector.is_alive():
+                self.datacollector.terminate()
         self.datacollector = RemoteDataCollector(socket=self.s, title=self.title, output=self.output, stamp=self.stamp, save_data=False)
         self.datacollector.start()
         self.start_remote()
 
     def __del__(self):
         self.manager.shutdown()
-        if self.datacollector.is_alive():
-            self.datacollector.terminate()
+        if hasattr(self, 'datacollector'):
+            if self.datacollector.is_alive():
+                self.datacollector.terminate()
         self.datacollector.exitcode

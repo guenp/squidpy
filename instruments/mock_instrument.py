@@ -5,7 +5,7 @@ class Mock(Instrument):
     '''
     Mock instrument for testing squidpy.
     '''
-    def __init__(self, name='mock', wait=.1):
+    def __init__(self, wait=.1, name='mock'):
         self._wait = wait
         self._tstart = 0
         self._voltage = 10

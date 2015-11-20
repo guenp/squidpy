@@ -86,14 +86,16 @@ def ask_socket(s, cmd):
     import time
     '''query socket and return response'''
     #empty socket buffer
-    if socket_poll(s):
+    while socket_poll(s):
         s.recv(1024)
+        time.sleep(.01)
     s.sendall(cmd.encode())
     while not socket_poll(s):
         time.sleep(.01)
     data = b''
     while socket_poll(s):
         data += s.recv(1024)
+        time.sleep(.01)
     try:
         ans = eval(data)
     except (IndentationError, SyntaxError, NameError, TypeError):

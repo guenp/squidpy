@@ -6,3 +6,5 @@
 - javascript plot, click to zoom, change figure labels, colors, etc
 - get datapoint asynchronously
 - logging, snapshot
+- abort/pause measurement
+- timestamp in remote experiment not the same as the real one

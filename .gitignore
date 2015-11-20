@@ -1,4 +1,6 @@
 *.pyc
+*.dat
+*.log
 __pycache__/
 .ipynb_checkpoints/
 tests/.ipynb_checkpoints/
