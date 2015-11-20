@@ -6,8 +6,10 @@ class Keithley2182A(Instrument):
     Instrument driver for Keithley 2182A Nanovoltmeter
     '''
     def __init__(self, name='keithleynano', gpib_address=''):
-        self._visa_handle = visa.ResourceManager().open_resource(gpib_address)
+        rm = visa.ResourceManager()
+        self._visa_handle = rm.open_resource(gpib_address)
         self._visa_handle.read_termination = '\n'
+        self._units = {'voltage': 'V', 'range': 'V'}
         super(Keithley2182A, self).__init__(name)
         self._visa_handle.write(':CONF:VOLT:DC')
 
@@ -34,7 +36,7 @@ class Keithley2182A(Instrument):
 
     @property
     def autorange(self):
-        return {0:'off', 1:'on'}[self._visa_handle.ask(':SENS:VOLT:RANG:AUTO?')]
+        return {0:'off', 1:'on'}[int(self._visa_handle.ask(':SENS:VOLT:RANG:AUTO?'))]
 
     @autorange.setter
     def autorange(self, value):
@@ -48,6 +50,7 @@ class Keithley6220(Instrument):
     def __init__(self, name='keithleynano', gpib_address=''):
         self._visa_handle = visa.ResourceManager().open_resource(gpib_address)
         self._visa_handle.read_termination = '\n'
+        self._units = {'current': 'A', 'compliance': 'A'}
         super(Keithley6220, self).__init__(name)
 
     @property
@@ -68,7 +71,7 @@ class Keithley6220(Instrument):
 
     @property
     def output(self):
-        return {1: 'on', 2: 'off'}[self._visa_handle.ask('OUTP?')]
+        return {0: 'off', 1:'on'}[int(self._visa_handle.ask('OUTP?'))]
 
     @output.setter
     def output(self, value):
@@ -76,9 +79,11 @@ class Keithley6220(Instrument):
         self._visa_handle.write('OUTP %s' %status)
         
     def clear(self):
+        '''Reset the device and set output off.'''
         self._visa_handle.write('CLE')
 
     def linear_sweep(self, start, stop, step, delay, count):
+        '''Start a linear sweep: (start, stop, step, delay, count)'''
         self._visa_handle.write('SOUR:SWE:SPAC LIN')
         self._visa_handle.write('SOUR:CURR:STAR %s' %start)
         self._visa_handle.write('SOUR:CURR:STOP %s' %stop)

@@ -34,7 +34,7 @@ class Instrument(object):
         super(Instrument, self).__init__()
         self._params = [a[0] for a in inspect.getmembers(type(self), lambda a: type(a)==property)]
         self._name = name
-        self._functions = [f[0] for f in inspect.getmembers(type(self), lambda a:type(a) == types.FunctionType) if not(f[0].startswith('_'))]
+        self._functions = [f[0] for f in inspect.getmembers(type(self), lambda a:type(a) == types.FunctionType) if (not(f[0].startswith('_')) and not(f[0] == 'get_datapoint') and not(f[0] == 'refresh'))]
 
     def get_datapoint(self, params):
         datapoint = {}
@@ -58,9 +58,15 @@ class Instrument(object):
         for key in self._params:
             if key in self._units.keys():
                 unit = self._units[key]
+            else:
+                unit = ''
+            if hasattr(self, '_' + key):
+                value = getattr(self,'_'+key)
+            else:
+                value = getattr(self, key)
             html.append("<tr>")
             html.append("<td>{0}</td>".format(key))
-            html.append("<td>{0} {1}</td>".format(getattr(self,'_'+key), unit))
+            html.append("<td>{0} {1}</td>".format(value, unit))
             html.append("</tr>")
         html.append("<tr><td colspan=2><b>Functions</b></td></tr>")
         for key in self._functions:
