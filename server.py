@@ -6,8 +6,8 @@ import socket, select
 import gc
 import logging
 
-def run_server(instruments, host, port, verbose=False):
-    server = Server(instruments, host, port, verbose)
+def run_server(instruments, HOST='localhost', PORT=50007, verbose=False):
+    server = Server(instruments, HOST, PORT, verbose)
     server.start()
     return server
 
