@@ -1,6 +1,6 @@
 from multiprocessing import Process, Pipe, Manager, get_context, Queue
 from squidpy.utils import get_array, ask_socket, read_pipe
-from squidpy.instrument import create_instruments_from_pipes
+from squidpy.instrument import create_instruments_from_pipes, RemoteInstrument, InstrumentList
 from squidpy.data import DataCollector, Data, RemoteDataCollector
 from IPython import display
 from pylab import pause
@@ -93,15 +93,15 @@ class Experiment():
     The datacollector, also in a separate process, is a daemon that collects all these datapoints in a Data (pd.Dataframe-like) object and saves the data periodically on-disk.
     It also drops the latest Data instance in a pipe for live plotting in the main thread.
     '''
-    def __init__(self, title, instruments, measlist=[]):
+    def __init__(self, title, measlist=[]):
         self.title = title
-        self.instruments = instruments
+        self.instruments = InstrumentList(*RemoteInstrument.instances)
         self.manager = Manager()
         self.output = self.manager.dict()
         self.plots = []
         self.figs = []
         self._data = pd.DataFrame()
-        self.measurement = Measurement(instruments, measlist)
+        self.measurement = Measurement(self.instruments, measlist)
         self.datacollector = DataCollector(self.measurement.pipe[1], self.output, self.title)
         self._user_interrupt = False
     

@@ -8,19 +8,13 @@ import asyncio
 import inspect
 import logging
 import types
+from squidpy import instruments as instruments_module
 
-def create_instruments(*args):
-    set_logging_config()
-    instruments = InstrumentList()
-    procs = []
-    for instrument_tuple in args:
-        instrument_class = instrument_tuple[0]
-        instrument_args = instrument_tuple[1:]
-        ins_proc = InstrumentDaemon(instrument_class, *instrument_args)
-        ins = RemoteInstrument(ins_proc._pipe_out)
-        instruments.append(ins)
-        procs.append(ins_proc)
-    return instruments, procs
+def instrument(class_name, *args):
+    instrument_class = getattr(instruments_module, class_name)
+    ins_proc = InstrumentDaemon(instrument_class, *args)
+    ins = RemoteInstrument(ins_proc._pipe_out)
+    return ins
 
 def create_instruments_from_pipes(pipes):
     instruments = InstrumentList()
@@ -82,6 +76,8 @@ class Instrument(object):
 
 class InstrumentDaemon(Process):
     '''Process that creates an instrument.'''
+    instances = []
+
     def __init__(self, instrument_class, *args, **kwargs):
         super(InstrumentDaemon, self).__init__()
         self._instrument_class = instrument_class
@@ -91,6 +87,7 @@ class InstrumentDaemon(Process):
         self._pipe_out = self._pipe[1]
         self.daemon = True
         self.start()
+        InstrumentDaemon.instances.append(self)
 
     def run(self):
         # Create instrument
@@ -126,6 +123,7 @@ class InstrumentDaemon(Process):
         self.exitcode
 
 class RemoteInstrument(Instrument):
+    instances = []
     def __init__(self, pipe=None, socket=None, name=None):
         self._pipe = pipe
         self._socket = socket
@@ -142,6 +140,13 @@ class RemoteInstrument(Instrument):
             setattr(RemoteInstrument, param, property(fget=eval("lambda self: self._get_param('%s')" %param), fset=eval("lambda self, value: self._set_param('%s',value)" %param)))
         for func in self._functions:
             setattr(RemoteInstrument, func, eval("lambda self, *args, **kwargs: self._get_func('%s', *args, **kwargs)" %func))
+        self.instances.append(self)
+
+    @property
+    def name(self):
+        import __main__
+        self._name = [key for key in __main__.__dict__ if __main__.__dict__[key] is self][0]
+        return self._name
 
     def _get_func(self, func, *args, **kwargs):
         cmd = '%s(' %func
@@ -180,7 +185,7 @@ class InstrumentList(list):
             self.s = socket
 
     def set_attributes(self):
-        self.todict = {ins._name: ins for ins in self}
+        self.todict = {ins.name: ins for ins in self}
         for key in self.todict:
             setattr(self, key, self.todict[key])
 
@@ -247,5 +252,5 @@ class InstrumentList(list):
         return self
     
     def _repr_html_(self):
-        html = [ins._repr_html_() + '<P></P>' for ins in self]
+        html = [ins._name + '<br>' for ins in self]
         return ''.join(html)
