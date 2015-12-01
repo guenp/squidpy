@@ -111,6 +111,7 @@ def read_pipe(pipe):
     return ans
 
 def ask_pipe(pipe, cmd):
+    flush_pipe(pipe)
     pipe.send(cmd)
     return read_pipe(pipe)
 

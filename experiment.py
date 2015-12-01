@@ -23,7 +23,7 @@ class Measurement(ctx.Process):
     '''
     def __init__(self, instruments, measlist = [], *args, **kwargs):
         super(Measurement, self).__init__()
-        self.pipe = Pipe()
+        self.pipe = Pipe() # data pipe
         self.instrument_pipes = instruments.get_pipes()
         self.measlist = measlist
     
@@ -56,6 +56,10 @@ class Measurement(ctx.Process):
                 self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
+            if meas['type']=='do_while':
+                clause = 'self.instruments.' + meas['params']
+                while eval(clause):
+                    self.do_measurement(measlist.copy())
             if meas['type']=='measure':
                 dp = self.get_dp(meas['params'])
                 self.pipe[0].send(dp)
@@ -120,12 +124,21 @@ class Experiment():
     
     @property
     def running(self):
-        running = self.measurement.is_alive() and (not self._user_interrupt)
-        if not running:
-            if len(self.plots)>0:
-                if self.plots[0]['type'] is not 'pcolor':
-                    display.clear_output(wait=True)
-        return running
+        try:
+            running = self.measurement.is_alive() and (not self._user_interrupt)
+            if not running:
+                if len(self.plots)>0:
+                    if self.plots[0]['type'] is not 'pcolor':
+                        display.clear_output(wait=True)
+            return running
+        except KeyboardInterrupt:
+            return False
+
+    @running.setter
+    def running(self, value):
+        if value is False:
+            self.measurement.terminate()
+            self.measurement.end_measurement()
     
     def wait_and_get_title(self, timeout=2, tsleep=0):
         '''Wait for data file to fill and return title.'''
@@ -143,6 +156,7 @@ class Experiment():
         self.plots.append({'type': 'plot', 'args': args, 'kwargs': kwargs, 'ax': ax})
         if ax.get_figure() not in self.figs:
             self.figs.append(ax.get_figure())
+        self._user_interrupt = False
 
     def clear_plot(self):
         for fig in self.figs:
@@ -153,25 +167,31 @@ class Experiment():
         gc.collect()
 
     def update_plot(self):
-        loop = asyncio.get_event_loop()
-        tasks = []
-        self.data
-        for plot in self.plots:
-            ax = plot['ax']
-            if plot['type']=='plot':
-                x,y = plot['args'][0], plot['args'][1]
-                if type(y) == str:
-                    y = [y]
-                for yname,line in zip(y,ax.lines):
-                    tasks.append(asyncio.ensure_future(self.update_line(ax, line, x, yname)))
-            if plot['type']=='pcolor':
-                x,y,z = plot['x'], plot['y'], plot['z']
-                tasks.append(asyncio.ensure_future(self.update_pcolor(ax, x, y, z)))
-        loop.run_until_complete(asyncio.wait(tasks))
-        
-        display.clear_output(wait=True)
-        display.display(*self.figs)
-        time.sleep(0.1)
+        try:
+            loop = asyncio.get_event_loop()
+            tasks = []
+            self.data
+            for plot in self.plots:
+                ax = plot['ax']
+                if plot['type']=='plot':
+                    x,y = plot['args'][0], plot['args'][1]
+                    if type(y) == str:
+                        y = [y]
+                    for yname,line in zip(y,ax.lines):
+                        tasks.append(asyncio.ensure_future(self.update_line(ax, line, x, yname)))
+                if plot['type']=='pcolor':
+                    x,y,z = plot['x'], plot['y'], plot['z']
+                    tasks.append(asyncio.ensure_future(self.update_pcolor(ax, x, y, z)))
+            loop.run_until_complete(asyncio.wait(tasks))
+            
+            display.clear_output(wait=True)
+            display.display(*self.figs)
+            time.sleep(0.1)
+        except KeyboardInterrupt:
+            loop.run_until_complete(asyncio.wait(tasks))
+            display.clear_output(wait=True)
+            display.display(*self.figs)
+            self._user_interrupt = True
     
     def pcolor(self, xname, yname, zname, *args, **kwargs):
         title = self.wait_and_get_title()
@@ -218,6 +238,9 @@ class Experiment():
     def sweep(self, sweep_param):
         ins, param = re.split('\.', sweep_param)
         return Sweep(self, ins, param)
+
+    def do_while(self, clause):
+        self.set(do_while = clause)
     
     def do(self, func, *args):
         self.set(do = (func, args))
@@ -250,79 +273,3 @@ class Experiment():
             self.datacollector.terminate()
         self.datacollector.exitcode
         self.measurement.exitcode
-
-class RemoteExperiment(Experiment):
-    def __init__(self, socket, title='', measlist=[], stamp=None):
-        self.manager = Manager()
-        self.output = self.manager.dict()
-        self.s = socket
-        if stamp == None:
-            self.title = title
-            self.measlist = measlist
-        else:
-            self.title, self.measlist = self.get_experiment(stamp)
-            self.stamp = stamp
-        self.plots = []
-        self.figs = []
-        self._data = pd.DataFrame
-
-    def get_experiment(self, stamp):
-        return ask_socket(self.s, 'self.get_experiment(\'%s\')' %stamp)
-
-    def new_file(self):
-        return True
-
-    @property
-    def running(self):
-        running = self.datacollector.is_alive()
-        if not running:
-            if len(self.plots)>0:
-                if self.plots[0]['type'] is not 'pcolor':
-                    display.clear_output(wait=True)
-        return running
-
-    def create_remote(self):
-        self.stamp = ask_socket(self.s, 'self.create_experiment(\'%s\', %s)' %(self.title, self.measlist))
-
-    def start_remote(self):
-        ask_socket(self.s, 'self.experiments[\'%s\'].run()' %self.stamp)
-
-    def set(self, *args, **kwargs):
-        '''
-        Add keyword argument as measurement type 
-        to measurement list
-        '''
-        measlist = self.measlist.copy()
-        for key in kwargs:
-            measlist.append({'type':key, 'params': kwargs[key]})
-        self.measlist = measlist
-
-    def restart_datacollector(self):
-        self.manager = Manager()
-        self.output = self.manager.dict()
-        if hasattr(self, 'datacollector'):
-            if self.datacollector.is_alive():
-                self.datacollector.terminate()
-        self.datacollector = RemoteDataCollector(socket=self.s, title=self.title, output=self.output, stamp=self.stamp, save_data=False)
-        # self.output['data'] = self._data
-        self.datacollector.start()
-
-    def run(self):
-        if self.measlist is []:
-            raise NameError('Measurement is not defined.')
-        if 'measure' not in [meas['type'] for meas in self.measlist]:
-            print('Warning: No \'measure\' command found.')
-        self.create_remote()
-        if hasattr(self, 'datacollector'):
-            if self.datacollector.is_alive():
-                self.datacollector.terminate()
-        self.datacollector = RemoteDataCollector(socket=self.s, title=self.title, output=self.output, stamp=self.stamp, save_data=False)
-        self.datacollector.start()
-        self.start_remote()
-
-    def __del__(self):
-        self.manager.shutdown()
-        if hasattr(self, 'datacollector'):
-            if self.datacollector.is_alive():
-                self.datacollector.terminate()
-        self.datacollector.exitcode

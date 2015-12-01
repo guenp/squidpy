@@ -18,8 +18,8 @@ def instrument(class_name, *args):
 
 def create_instruments_from_pipes(pipes):
     instruments = InstrumentList()
-    for pipe in pipes:
-        ins = RemoteInstrument(pipe)
+    for key in pipes:
+        ins = RemoteInstrument(pipes[key], name=key)
         instruments.append(ins)
     return instruments
 
@@ -127,10 +127,7 @@ class RemoteInstrument(Instrument):
     def __init__(self, pipe=None, socket=None, name=None):
         self._pipe = pipe
         self._socket = socket
-        if name == None:
-            self._name = self._get_param('_name')
-        else:
-            self._name = name
+        self._name = name
         self._params = self._get_param('_params')
         self._functions = self._get_param('_functions')
         self._units = self._get_param('_units')
@@ -144,8 +141,9 @@ class RemoteInstrument(Instrument):
 
     @property
     def name(self):
-        import __main__
-        self._name = [key for key in __main__.__dict__ if __main__.__dict__[key] is self][0]
+        if self._name is None:
+            import __main__
+            self._name = [key for key in __main__.__dict__ if __main__.__dict__[key] is self][0]
         return self._name
 
     def _get_func(self, func, *args, **kwargs):
@@ -187,10 +185,11 @@ class InstrumentList(list):
     def set_attributes(self):
         self.todict = {ins.name: ins for ins in self}
         for key in self.todict:
-            setattr(self, key, self.todict[key])
+            if key is not 'name':
+                setattr(self, key, self.todict[key])
 
     def get_pipes(self):
-        return [ins._pipe for ins in self]
+        return {ins._name: ins._pipe for ins in self}
 
     def get_datapoint(self, params=None):
         '''
