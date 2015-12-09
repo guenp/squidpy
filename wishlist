@@ -8,3 +8,7 @@
 - logging, snapshot
 - abort/pause measurement
 - timestamp in remote experiment not the same as the real one
+- live plot in separate process/popup. dynamically change. pause button. close = screenshot in notebook. pyqtgraph?
+- command ID? flush socket/pipe?
+- gui for creating measurement list
+- 
