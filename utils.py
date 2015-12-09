@@ -82,7 +82,17 @@ def socket_poll(s):
     inputready, o, e = select.select([s],[],[], 0.0)
     return len(inputready)>0
 
-def ask_socket(s, cmd):
+def ask_socket(s, cmd, startbytes=0):
+    data = ask_socket_raw(s, cmd)
+    if startbytes>0:
+        data = data[startbytes:]
+    try:
+        ans = eval(data)
+    except (IndentationError, SyntaxError, NameError, TypeError):
+        ans = data.decode()
+    return ans
+
+def ask_socket_raw(s, cmd):
     import time
     '''query socket and return response'''
     #empty socket buffer
@@ -96,11 +106,7 @@ def ask_socket(s, cmd):
     while socket_poll(s):
         data += s.recv(1024)
         time.sleep(.01)
-    try:
-        ans = eval(data)
-    except (IndentationError, SyntaxError, NameError, TypeError):
-        ans = data.decode()
-    return ans
+    return data
 
 def read_pipe(pipe):
     data = pipe.recv()
