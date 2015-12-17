@@ -1,7 +1,7 @@
 from multiprocessing import Process, Pipe, Manager, get_context, Queue
 from squidpy.utils import get_array, ask_socket, read_pipe
 from squidpy.instrument import create_instruments_from_pipes, RemoteInstrument, InstrumentList
-from squidpy.data import DataCollector, Data, RemoteDataCollector
+from squidpy.data import DataCollector, Data
 from IPython import display
 from pylab import pause
 import time
@@ -56,6 +56,8 @@ class Measurement(ctx.Process):
                 self.do_measurement(measlist.copy())
             if meas['type']=='sweep':
                 self.recursive_sweep(measlist.copy(), *meas['params'])
+            if meas['type']=='sweep_custom':
+                self.recursive_sweep_custom(measlist.copy(), *meas['params'])
             if meas['type']=='do_while':
                 clause = 'self.instruments.' + meas['params']
                 while eval(clause):
@@ -65,6 +67,9 @@ class Measurement(ctx.Process):
                 self.pipe[0].send(dp)
                 self.do_measurement(measlist.copy())
     
+    def recursive_sweep_custom(self, measlist, ins, param, arr):
+        [self.set_param_and_run_next(measlist, ins, param, val) for val in arr]
+
     def recursive_sweep(self, measlist, ins, param, start, stop, step):
         [self.set_param_and_run_next(measlist, ins, param, val) for val in get_array(start, stop, step)]
 
@@ -82,10 +87,12 @@ class Measurement(ctx.Process):
         self.end_measurement()
 
 class Sweep(object):
-        def __init__(self, experiment, ins, param):
+        def __init__(self, experiment, ins, param, arr = []):
             self.ins = ins
             self.param = param
             self.experiment = experiment
+            if len(arr)>0:
+                self.experiment.set(sweep_custom = (self.ins, self.param, arr))
 
         def __getitem__(self, s):
             self.experiment.set(sweep = (self.ins, self.param, 
@@ -235,9 +242,9 @@ class Experiment():
     def set(self, **kwargs):
         self.measurement.set(**kwargs)
 
-    def sweep(self, sweep_param):
+    def sweep(self, sweep_param, arr=[]):
         ins, param = re.split('\.', sweep_param)
-        return Sweep(self, ins, param)
+        return Sweep(self, ins, param, arr)
 
     def do_while(self, clause):
         self.set(do_while = clause)

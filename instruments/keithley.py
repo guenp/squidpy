@@ -156,3 +156,30 @@ class Keithley2400(Instrument):
     
     def __del__(self):
         self._visa_handle.close()
+
+class Keithley7001(Instrument):
+    '''
+    Instrument driver for Keithley 7001 Switch system
+    '''
+    def __init__(self, gpib_address='',  name='keithleyswitch'):
+        self._visa_handle = visa.ResourceManager().open_resource(gpib_address)
+        self._visa_handle.read_termination = '\n'
+        self._configs = {}
+        super(Keithley7001, self).__init__(name)
+
+    def open_all(self):
+        self._visa_handle.write('OPEN ALL')
+
+    def close(self, chanlist):
+        self._visa_handle.write(':CLOSE (@%s)' %chanlist)
+
+    def add_config(self, name, chanlist):
+        self._configs.update({name: chanlist})
+
+    def activate_config(self, chanlist):
+        self.open_all()
+        self.close(chanlist)
+
+    @property
+    def configs(self):
+        return self._configs
