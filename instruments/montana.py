@@ -44,4 +44,4 @@ class MontanaCryostation(Instrument):
         self._ask('SWU')
 
     def _ask(self, cmd):
-        ask_socket(self._s, '0%s%s' %(len(cmd), cmd), 2)
+        return ask_socket(self._s, '0%s%s' %(len(cmd), cmd), 2)

@@ -14,11 +14,11 @@ class NIDAQ(Instrument):
 		self._params = self._daq.get_AI_channels() + self._daq.get_AO_channels()
 		for chan in self._daq.get_AI_channels():
 			setattr(NIDAQ,chan,property(fget=eval('lambda self: self.get_chan(\'%s\')' %chan)))
-			self.units[chan] = 'V'
+			self._units[chan] = 'V'
 		for chan in self._daq.get_AO_channels():
 			setattr(self, '_%s' %chan, None)
 			setattr(NIDAQ,chan,property(fset=eval('lambda self, value: self.set_chan(\'%s\',value)' %chan), fget=eval('lambda self: getattr(self,\'_%s\')' %chan)))
-			self.units[chan] = 'V'
+			self._units[chan] = 'V'
 
 	def get_chan(self, chan):
 		return getattr(self._daq,chan).read().magnitude

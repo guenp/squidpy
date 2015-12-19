@@ -57,7 +57,10 @@ class DataCollector(Process):
                 if dp is not None:
                     self.output['data'] = self.output['data'].append(dp, ignore_index = True)
                     if self.save_data:
-                        Data(**self.output).save()
+                        try:
+                            Data(**self.output).save()
+                        except:
+                            pass
                 else:
                     running = False
                     break
