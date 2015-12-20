@@ -8,8 +8,8 @@ class Yokogawa7651(Instrument):
     def __init__(self, gpib_address='', name='yokogawa'):
         self._units = {'voltage': 'V'}
         self._visa_handle = visa.ResourceManager().open_resource(gpib_address)
-        self.voltage = 0
-        self.output = 0
+        self._voltage = 0
+        self._output = 0
         super(Yokogawa7651, self).__init__(name)
         
     @property
@@ -25,12 +25,12 @@ class Yokogawa7651(Instrument):
     
     @property
     def output(self):
-        return self._output
+        return {1: 'on', 0: 'off'}[self._output]
 
     @output.setter
     def output(self, value):
-        self._output = value
         status = 1 if ((value==True) or (value=='ON') or (value=='on')) else 0
+        self._output = status
         self._visa_handle.write('O%s;E;' %status)
     
     def __del__(self):
