@@ -10,9 +10,9 @@ import logging
 import types
 from squidpy import instruments as instruments_module
 
-def instrument(class_name, *args):
+def instrument(class_name, *args, **kwargs):
     instrument_class = getattr(instruments_module, class_name)
-    ins_proc = InstrumentDaemon(instrument_class, *args)
+    ins_proc = InstrumentDaemon(instrument_class, *args, **kwargs)
     ins = RemoteInstrument(ins_proc._pipe_out)
     return ins
 
@@ -102,7 +102,9 @@ class InstrumentDaemon(Process):
                 logging.debug(instrument._name + '.' + cmd)
                 try:
                     if '=' in cmd:
-                        param, value = re.split('=',cmd.replace(' ',''))
+                        cmd = cmd.replace(' =','=')
+                        cmd = cmd.replace('= ','=')
+                        param, value = re.split('=',cmd)
                         if param in instrument._params:
                             setattr(instrument, param, eval(value))
                         else:
