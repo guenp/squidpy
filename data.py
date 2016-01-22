@@ -14,18 +14,25 @@ class Data(pd.DataFrame):
         self.title = title
         self.stamp = stamp
         self.folder = folder
-    
-    def add_dp(self, dp):
-        title, folder, stamp = self.title, self.folder, self.stamp
-        df = self.append(dp, ignore_index = True)
-        self.__init__(title, folder, stamp, df)
-        
-    def save(self, filename=''):
-        if filename=='':
-            filename = '%s_%s.dat' %(self.stamp, self.title)
+        filename = '%s_%s.dat' %(self.stamp, self.title)
         if not os.path.exists(self.folder):
             os.mkdir(self.folder)
-        self.to_csv(os.path.join(self.folder,filename), sep='\t')
+        self.filename = os.path.join(self.folder,filename)
+        self.len = 0
+    
+    def add_dp(self, dp):
+        proc_seqf = open(self.filename,'a')
+        if self.len == 0:
+            proc_seqf.write(("{}\t"*len(dp) + "\n").format(*sorted(dp.keys())))
+        sorted_values = [dp[key] for key in sorted(dp.keys())]
+        proc_seqf.write(("{}\t"*len(dp) + "\n").format(*sorted_values))
+        proc_seqf.close()
+        self.len += 1
+        
+    def save(self, filename=''):
+        if filename != '':
+            self.filename = filename
+        self.to_csv(self.filename, columns=sorted(self.keys()), sep='\t')
         
 class DataCollector(Process):
     '''
@@ -51,6 +58,7 @@ class DataCollector(Process):
 
     def run(self):
         running = True
+        data = Data(**self.output)
         while running:
             while self.pipe.poll():
                 dp = self.pipe.recv()
@@ -58,7 +66,7 @@ class DataCollector(Process):
                     self.output['data'] = self.output['data'].append(dp, ignore_index = True)
                     if self.save_data:
                         try:
-                            Data(**self.output).save()
+                            data.add_dp(dp)
                         except:
                             pass
                 else:
