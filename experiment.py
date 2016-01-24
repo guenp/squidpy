@@ -147,7 +147,7 @@ class Experiment():
             self.measurement.terminate()
             self.measurement.end_measurement()
     
-    def wait_and_get_title(self, timeout=2, tsleep=0):
+    def wait_and_get_title(self, timeout=10, tsleep=0):
         '''Wait for data file to fill and return title.'''
         while self.data.empty:
             time.sleep(0.01)
@@ -156,6 +156,15 @@ class Experiment():
                 raise Exception('Timeout for graph: no data received.')
         title = '%s_%s' %(self._data.stamp, self._data.title)
         return title
+
+    def plot_live(self, *args, **kwargs):
+        self.clear_plot()
+        self.plot(*args, **kwargs)
+        try:
+            while self.running:
+                self.update_plot()
+        except KeyboardInterrupt:
+            pass
     
     def plot(self, *args, **kwargs):
         kwargs['title'] = self.wait_and_get_title()
