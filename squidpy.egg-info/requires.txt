@@ -1,3 +1,0 @@
-Numpy >= 1.6.1
-pandas >= 0.14
-seaborn
