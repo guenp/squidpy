@@ -116,6 +116,11 @@ class Keithley2400(Instrument):
     def current(self):
         '''Get the current reading.'''
         return float(self._visa_handle.ask(':READ?').split(',')[1])
+
+    @property
+    def voltage_in(self):
+        '''Get the current reading.'''
+        return float(self._visa_handle.ask(':READ?').split(',')[0])
     
     @property
     def voltage(self):

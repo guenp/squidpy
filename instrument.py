@@ -86,6 +86,7 @@ class InstrumentDaemon(Process):
         self._pipe = Pipe()
         self._pipe_out = self._pipe[1]
         self.daemon = True
+        self.running = True
         self.start()
         InstrumentDaemon.instances.append(self)
 
@@ -93,35 +94,38 @@ class InstrumentDaemon(Process):
         # Create instrument
         instrument = self._instrument_class(*self._args, **self._kwargs)
         pipe = self._pipe[0]
-        while True:
+        while self.running:
             while not pipe.poll():
                 time.sleep(0.01)
             else:
                 cmd = pipe.recv()
                 if not cmd: break
                 logging.debug(instrument._name + '.' + cmd)
-                try:
-                    if '=' in cmd:
-                        cmd = cmd.replace(' =','=')
-                        cmd = cmd.replace('= ','=')
-                        param, value = re.split('=',cmd)
-                        if param in instrument._params:
-                            setattr(instrument, param, eval(value))
-                        else:
-                            logging.warning('Instrument %s does not have attribute %s.' %(instrument._name, param))
-                        response = 'True'
-                    elif '(' in cmd:
-                        response = eval('instrument.' + cmd)
-                    else:
-                        response = str(getattr(instrument, cmd))
-                    pipe.send(response)
-                except Exception as e:
-                    logging.warning('Command \'%s\' not recognized: %s' %(cmd, e))
+                if cmd == 'close':
+                    self.running = False
                     pipe.send('None')
+                else:
+                    try:
+                        if '=' in cmd:
+                            cmd = cmd.replace(' =','=')
+                            cmd = cmd.replace('= ','=')
+                            param, value = re.split('=',cmd)
+                            if param in instrument._params:
+                                setattr(instrument, param, eval(value))
+                            else:
+                                logging.warning('Instrument %s does not have attribute %s.' %(instrument._name, param))
+                            response = 'True'
+                        elif '(' in cmd:
+                            response = eval('instrument.' + cmd)
+                        else:
+                            response = str(getattr(instrument, cmd))
+                        pipe.send(response)
+                    except Exception as e:
+                        logging.warning('Command \'%s\' not recognized: %s' %(cmd, e))
+                        pipe.send('None')
 
     def __del__(self):
         self._pipe[0].close()
-        self.terminate()
         self.exitcode
 
 class RemoteInstrument(Instrument):
@@ -255,3 +259,7 @@ class InstrumentList(list):
     def _repr_html_(self):
         html = [ins._name + '<br>' for ins in self]
         return ''.join(html)
+
+    def close(self):
+        for ins in self:
+            ins._ask('close')

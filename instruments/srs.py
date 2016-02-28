@@ -31,8 +31,23 @@ class SR830(Instrument):
                 "10 ks": 18,
                 "30 ks": 19
             }
+        self.sensitivity_options = [
+        2e-9, 5e-9, 10e-9, 20e-9, 50e-9, 100e-9, 200e-9,
+        500e-9, 1e-6, 2e-6, 5e-6, 10e-6, 20e-6, 50e-6, 100e-6,
+        200e-6, 500e-6, 1e-3, 2e-3, 5e-3, 10e-3, 20e-3,
+        50e-3, 100e-3, 200e-3, 500e-3, 1]
         super(SR830, self).__init__(name)
-        
+
+    @property
+    def sensitivity(self):
+        '''Get the lockin sensitivity'''
+        return self.sensitivity_options[int(self._visa_handle.ask('SENS?'))]
+
+    @sensitivity.setter
+    def sensitivity(self, value):
+        '''Set the sensitivity'''
+        self._visa_handle.write('SENS%d' %self.sensitivity_options.index(value))
+
     @property
     def amplitude(self):
         '''Get the output amplitude'''
